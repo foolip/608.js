@@ -42,7 +42,7 @@ function parse608(cues) {
         case 0x7E: // Lower-case n with tilde
             return 0xF1;
         case 0x7F: // Solid block
-            return 0x25A0;
+            return 0x2588;
         default: // the rest match ASCII
             return byte;
         }
