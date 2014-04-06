@@ -3,22 +3,22 @@
 'use strict'
 
 function parse608(cues) {
-    function valid(byte) {
-        // byte is valid if it has odd parity
+    function hex(byte) {
+        var s = byte.toString(16);
+        return s.length < 2 ? '0' + s : s;
+    }
+
+    function parity(byte) {
         var bits = 0;
         while (byte) {
             bits += byte & 1;
             byte = byte >> 1;
         }
-        return bits % 2 == 1;
+        return bits % 2;
     }
 
     function to7bit(byte) {
-        if (valid(byte)) {
-            return byte & 0x7F;
-        } else {
-            return -1;
-        }
+        return byte & 0x7F;
     }
 
     function toCharCode(byte) {
@@ -85,32 +85,266 @@ function parse608(cues) {
         }
     }
 
-    cues.forEach(function(cue) {
-        var charCodes = [];
+    function createChannel() {
+        var ROWS = 15;
+        var COLUMNS = 32;
 
-        var index, first, second;
-        for (index = 0; index + 1 < cue.data.length; index += 2) {
-            first = to7bit(cue.data[index]);
-            second = to7bit(cue.data[index + 1]);
-            if (first >= 0x10 && first <= 0x1F) {
-                if (first == 0x11 && second >= 0x30 && second <= 0x3F) {
-                    charCodes.push(toCharCodeSpecial(second));
-                }
-                // FIXME: control codes
+        var mode; // pop-on, paint-on, roll-up
+        var displayedMemory = new Uint16Array(ROWS * COLUMNS);
+        var nonDisplayedMemory = new Uint16Array(ROWS * COLUMNS);
+        var row = 1;
+        var column = 1;
+
+        function index(row, column) {
+            console.assert(row >= 1 && row <= ROWS && column >= 1 && column <= COLUMNS);
+            return (COLUMNS * (row - 1)) + (column - 1);
+        }
+
+        function set(row, column, charCode) {
+            var memory = mode == 'pop-on' ? nonDisplayedMemory : displayedMemory;
+            memory[index(row, column)] = charCode;
+        }
+
+        function get(row, column) {
+            return displayedMemory[index(row, column)];
+        }
+
+        function handleCharCode(charCode) {
+            set(row, column, charCode);
+            if (column < COLUMNS)
+                column++;
+        }
+
+        function handleCharacter(byte) {
+            console.assert(byte >= 0x20);
+            handleCharCode(toCharCode(byte));
+        }
+
+        function handleSpecialCharacter(byte) {
+            console.assert(byte >= 0x30 && byte <= 0x3F);
+            handleCharCode(toCharCodeSpecial(byte));
+        }
+
+        function handlePreambleAddressCode(first, second) {
+            console.assert(first >= 0x10 && first <= 0x17 && second >= 0x40 && second <= 0x7F);
+            if (first == 0x11) {
+                row = second <= 0x5F ? 1 : 2;
+            } else if (first == 0x12) {
+                row = second <= 0x5F ? 3 : 4;
+            } else if (first == 0x15) {
+                row = second <= 0x5F ? 5 : 6;
+            } else if (first == 0x16) {
+                row = second <= 0x5F ? 7 : 8;
+            } else if (first == 0x17) {
+                row = second <= 0x5F ? 9 : 10;
+            } else if (first == 0x10 && second >= 0x60) {
+                row = 11;
+            } else if (first == 0x13) {
+                row = second <= 0x5F ? 12 : 13;
+            } else if (first == 0x14) {
+                row = second <= 0x5F ? 14 : 15;
             } else {
-                if (first >= 0x20) {
-                    charCodes.push(toCharCode(first));
+                console.warn('invalid preamble address code ' + hex(first) + hex(second));
+                return;
+            }
+            if ((second >= 0x40 && second <= 0x4F) || (second >= 0x60 && second <= 0x6F)) {
+                console.warn('ignoring color/underline/italics');
+            } else if ((second >= 0x50 && second <= 0x5F) || (second >= 0x70 && second <= 0x7F)) {
+                var indent = second
+                if (indent <= 0x5F) {
+                    indent -= 0x50;
+                } else {
+                    indent -= 0x70;
                 }
-                if (second >= 0x20) {
-                    charCodes.push(toCharCode(second));
-                }
+                indent = (indent >> 1) << 2;
+                column = 1 + indent;
             }
         }
 
-        cue.text = String.fromCharCode.apply(String, charCodes);
-    });
+        function handleMidRowCode(first, second) {
+            console.assert(first == 0x11 && second >= 0x20 && second <= 0x2F);
+            console.warn('ignoring mid-row code');
+            handleCharCode(0x20);
+        }
 
-    var pre = document.createElement('pre');
-    pre.textContent = cues.map(function(cue) { return cue.text; }).join('\n');
-    document.body.appendChild(pre);
+        function resumeCaptionLoading() {
+            mode = 'pop-on';
+        }
+
+        function backspace() {
+            console.assert(false);
+        }
+
+        function deleteToEndOfRow() {
+            console.assert(false);
+        }
+
+        function rollUpCaptions(rows) {
+            // FIXME: window size, resizing and moving the window
+            if (mode != 'roll-up') {
+                mode = 'roll-up';
+                row = 15;
+                column = 1;
+            }
+        }
+
+        function flashOn() {
+            console.warn('ignoring flash on');
+            handleCharCode(0x20);
+        }
+
+        function resumeDirectCaptioning() {
+            console.assert(false);
+        }
+
+        function textRestart() {
+            console.assert(false);
+        }
+
+        function resumeTextDisplay() {
+            console.assert(false);
+        }
+
+        function erase(memory) {
+            for (var index = 0; index < memory.length; index++) {
+                memory[index] = 0;
+            }
+        }
+
+        function carriageReturn() {
+            if (mode == 'roll-up') {
+                // FIXME: scroll lines
+            }
+        }
+
+        function endOfCaption() {
+            mode = 'pop-on';
+            // flip memories
+            var tmp = displayedMemory;
+            displayedMemory = nonDisplayedMemory;
+            nonDisplayedMemory = tmp;
+        }
+
+        function tabOffset(columns) {
+            console.assert(columns >= 1 && columns <= 3);
+            columns = Math.min(column + columns, COLUMNS);
+        }
+
+        function resumeDirectCaptioning() {
+            mode = 'paint-on';
+        }
+
+        function handleControlCode(pair, first, second) {
+            if (first == 0x11 && second >= 0x30 && second <= 0x3F) {
+                handleSpecialCharacter(second);
+            } else if (second >= 0x40 && second <= 0x7F) {
+                handlePreambleAddressCode(first, second);
+            } else if (first == 0x11 && second >= 0x20 && second <= 0x2F) {
+                handleMidRowCode(first, second);
+            } else if (first == 0x14 && second == 0x20) {
+                resumeCaptionLoading();
+            } else if (first == 0x14 && second == 0x21) {
+                backspace();
+            } else if (first == 0x14 && second == 0x24) {
+                deleteToEndOfRow();
+            } else if (first == 0x14 && second >= 0x25 && second <= 0x27) {
+                rollUpCaptions(second - 0x23);
+            } else if (first == 0x14 && second == 0x28) {
+                flashOn();
+            } else if (first == 0x14 && second == 0x29) {
+                resumeDirectCaptioning();
+            } else if (first == 0x14 && second == 0x2A) {
+                textRestart();
+            } else if (first == 0x14 && second == 0x2B) {
+                resumeTextDisplay();
+            } else if (first == 0x14 && second == 0x2C) {
+                erase(displayedMemory);
+            } else if (first == 0x14 && second == 0x2D) {
+                carriageReturn();
+            } else if (first == 0x14 && second == 0x2E) {
+                erase(nonDisplayedMemory);
+            } else if (first == 0x14 && second == 0x2F) {
+                endOfCaption();
+            } else if (first == 0x17 && second >= 0x21 && second <= 0x23) {
+                tabOffset(second - 0x20);
+            } else {
+                console.warn('unsupported control code ' + pair + ' (' + hex(first) + hex(second) + ')');
+            }
+        }
+
+        function toString() {
+            var charCodes = [];
+            var row, column, charCode;
+            for (row = 1; row <= ROWS; row++) {
+                for (column = 1; column <= COLUMNS; column++) {
+                    charCode = get(row, column);
+                    charCodes.push(charCode ? charCode : 0x20);
+                }
+                charCodes.push(0x0A);
+            }
+            return String.fromCharCode.apply(String, charCodes);
+        }
+
+        return {
+            handleCharacter: handleCharacter,
+            handleControlCode: handleControlCode,
+            toString: toString
+        };
+    }
+
+    var c1 = createChannel();
+    var c2 = createChannel();
+    var cc; // current channel
+
+    cues.forEach(function(cue) {
+        var index, pair, first, second;
+        for (index = 0; index + 1 < cue.data.length; index += 2) {
+            first = cue.data[index];
+            second = cue.data[index + 1];
+            pair = hex(first) + hex(second);
+            if (parity(first) != 1 || parity(second) != 1) {
+                console.warn('failed parity check for ' + pair);
+                continue;
+            }
+            first = to7bit(first);
+            second = to7bit(second);
+            if (first >= 0x10 && first <= 0x1F && second >= 20 && second <= 0x7F) {
+                // control codes
+                if (index >= 2 && cue.data[index] == cue.data[index - 2] && cue.data[index + 1] == cue.data[index - 1]) {
+                    // ignore redundant control code
+                    continue;
+                }
+                if (first < 0x18) {
+                    cc = c1;
+                } else {
+                    // channel 2 control codes are offset by 8
+                    cc = c2;
+                    first -= 8;
+                }
+                cc.handleControlCode(pair, first, second);
+            } else {
+                if (cc) {
+                    if (first >= 0x20) {
+                        cc.handleCharacter(first);
+                    } else if (first != 0x00) {
+                        console.info('ignoring non-printing character ' + hex(first));
+                    }
+                    if (second >= 0x20) {
+                        cc.handleCharacter(second);
+                    } else if (second != 0x00) {
+                        console.info('ignoring non-printing character ' + hex(second));
+                    }
+                } else {
+                    console.warn('no current channel, ignoring ' + pair);
+                }
+            }
+        }
+        if (cc) {
+            var pre = document.createElement('pre');
+            pre.style.width = '32em';
+            pre.style.border = '1px dotted green';
+            pre.textContent = cc.toString();
+            document.body.appendChild(pre);
+        }
+    });
 }
