@@ -261,6 +261,10 @@ function parse608(cues) {
 
         function handleExtendedCharacter(first, second) {
             console.assert(first >= 0x12 && first <= 0x13 && second >= 0x20 && second <= 0x3F);
+            // replace previous character
+            if (column > 1) {
+                column--;
+            }
             handleCharCode(toCharCodeExtended((first << 8) + second));
         }
 
