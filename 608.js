@@ -69,7 +69,8 @@ function parse608(cues) {
         case 0x38: // Lower-case a with grave accent
             return 0xE0;
         case 0x39: // Transparent space
-            return null; // FIXME
+            console.assert(false, 'transparent space not supported');
+            return 0;
         case 0x3A: // Lower-case e with grave accent
             return 0xE8;
         case 0x3B: // Lower-case a with circumflex
@@ -172,15 +173,15 @@ function parse608(cues) {
         }
 
         function backspace() {
-            console.assert(false);
+            console.assert(false, 'backspace not supported');
         }
 
         function deleteToEndOfRow() {
-            console.assert(false);
+            console.assert(false, 'delete to end of row not supported');
         }
 
         function rollUpCaptions(rows) {
-            // FIXME: window size, resizing and moving the window
+            console.assert(false, 'roll-up captions not supported');
             if (mode != 'roll-up') {
                 mode = 'roll-up';
                 row = 15;
@@ -194,15 +195,15 @@ function parse608(cues) {
         }
 
         function resumeDirectCaptioning() {
-            console.assert(false);
+            console.assert(false, 'direct captioning not supported');
         }
 
         function textRestart() {
-            console.assert(false);
+            console.assert(false, 'text restart not supported');
         }
 
         function resumeTextDisplay() {
-            console.assert(false);
+            console.assert(false, 'resume text display not supported');
         }
 
         function erase(memory) {
@@ -213,7 +214,7 @@ function parse608(cues) {
 
         function carriageReturn() {
             if (mode == 'roll-up') {
-                // FIXME: scroll lines
+                console.assert(false, 'carriage return not supported');
             }
         }
 
