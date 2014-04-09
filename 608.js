@@ -86,6 +86,139 @@ function parse608(cues) {
         }
     }
 
+    function toCharCodeExtended(bytes) {
+        switch (bytes) {
+        case 0x1220: // Upper-case a with acute accent
+            return 0xC1;
+        case 0x1221: // Upper-case e with acute accent
+            return 0xC9;
+        case 0x1222: // Upper-case o with acute accent
+            return 0xD3;
+        case 0x1223: // Upper-case u with acute accent
+            return 0xDA;
+        case 0x1224: // Upper-case u with diaeresis
+            return 0xDC;
+        case 0x1225: // Lower-case u with diaeresis
+            return 0xFC;
+        case 0x1226: // Left single quote
+            return 0x2018;
+        case 0x1227: // Inverted exclamation
+            return 0xA1;
+        case 0x1228: // Asterisk
+            return 0x2A;
+        case 0x1229: // Right single quote
+            return 0x2019;
+        case 0x122A: // Em dash
+            return 0x2014;
+        case 0x122B: // Copyright symbol
+            return 0xA9;
+        case 0x122C: // Service mark symbol
+            return 0x2120;
+        case 0x122D: // Middle dot
+            return 0xB7;
+        case 0x122E: // Left double quote
+            return 0x201C;
+        case 0x122F: // Right double quote
+            return 0x201D;
+        case 0x1230: // Upper-case a with grave accent
+            return 0xC0;
+        case 0x1231: // Upper-case a with circumflex
+            return 0xC2;
+        case 0x1232: // Upper-case c with cedilla
+            return 0xC7;
+        case 0x1233: // Upper-case e with grave accent
+            return 0xC8;
+        case 0x1234: // Upper-case e with circumflex
+            return 0xCA;
+        case 0x1235: // Upper-case e with diaeresis
+            return 0xCB;
+        case 0x1236: // Lower-case e with diaeresis
+            return 0xEB;
+        case 0x1237: // Upper-case i with circumflex
+            return 0xCE;
+        case 0x1238: // Upper-case i with diaeresis
+            return 0xCF;
+        case 0x1239: // Lower-case i with diaeresis
+            return 0xEF;
+        case 0x123A: // Upper-case o with circumflex
+            return 0xD4;
+        case 0x123B: // Upper-case u with grave accent
+            return 0xD9;
+        case 0x123C: // Lower-case u with grave accent
+            return 0xF9;
+        case 0x123D: // Upper-case u with circumflex
+            return 0xDB;
+        case 0x123E: // Left double angle quote
+            return 0xAB;
+        case 0x123F: // Right double angle quote
+            return 0xBB;
+        case 0x1320: // Upper-case a with tilde
+            return 0xC3;
+        case 0x1321: // Lower-case a with tilde
+            return 0xE3;
+        case 0x1322: // Upper-case i with acute accent
+            return 0xCD;
+        case 0x1323: // Upper-case i with grave accent
+            return 0xCC;
+        case 0x1324: // Lower-case i with grave accent
+            return 0xEC;
+        case 0x1325: // Upper-case o with grace accent
+            return 0xD2;
+        case 0x1326: // Lower-case o with grace accent
+            return 0xF2;
+        case 0x1327: // Upper-case o with tilde
+            return 0xD5;
+        case 0x1328: // Lower-case o with tilde
+            return 0xF5;
+        case 0x1329: // Left curly brace
+            return 0x7B;
+        case 0x132A: // Right curly brace
+            return 0x7D;
+        case 0x132B: // Backslash
+            return 0x5C;
+        case 0x132C: // Circumflex
+            return 0x5E;
+        case 0x132D: // Underscore
+            return 0x1F;
+        case 0x132E: // Vertical line
+            return 0x7C;
+        case 0x132F: // Tidle
+            return 0x7E;
+        case 0x1330: // Upper-case a with diaeresis
+            return 0xC4;
+        case 0x1331: // Lower-case a with diaeresis
+            return 0xE4;
+        case 0x1332: // Upper-case o with diaeresis
+            return 0xD6;
+        case 0x1333: // Lower-case o with diaeresis
+            return 0xF6;
+        case 0x1334: // Sharp s
+            return 0xDF;
+        case 0x1335: // Yen sign
+            return 0xA5;
+        case 0x1336: // Currency sign
+            return 0xA4;
+        case 0x1337: // Broken bar
+            0xA6;
+        case 0x1338: // Upper-case a with ring
+            return 0xC5;
+        case 0x1339: // Lower-case a with ring
+            return 0xE5;
+        case 0x133A: // Upper-case o with stroke
+            return 0xD8;
+        case 0x133B: // Lower-case o with stroke
+            return 0xF8;
+        case 0x133C: // Box drawings light down and right
+            return 0x250C;
+        case 0x133D: // Box drawings light down and left
+            return 0x2510;
+        case 0x133E: // Box drawings light up and right
+            return 0x2514;
+        case 0x133F: // Box drawings light up and left
+            return 0x2518;
+        }
+    }
+
     function createChannel() {
         var ROWS = 15;
         var COLUMNS = 32;
@@ -124,6 +257,11 @@ function parse608(cues) {
         function handleSpecialCharacter(byte) {
             console.assert(byte >= 0x30 && byte <= 0x3F);
             handleCharCode(toCharCodeSpecial(byte));
+        }
+
+        function handleExtendedCharacter(first, second) {
+            console.assert(first >= 0x12 && first <= 0x13 && second >= 0x20 && second <= 0x3F);
+            handleCharCode(toCharCodeExtended((first << 8) + second));
         }
 
         function handlePreambleAddressCode(first, second) {
@@ -238,6 +376,8 @@ function parse608(cues) {
         function handleControlCode(pair, first, second) {
             if (first == 0x11 && second >= 0x30 && second <= 0x3F) {
                 handleSpecialCharacter(second);
+            } else if (first >= 0x12 && first <= 0x13 && second >= 0x20 && second <= 0x3F) {
+                handleExtendedCharacter(first, second);
             } else if (second >= 0x40 && second <= 0x7F) {
                 handlePreambleAddressCode(first, second);
             } else if (first == 0x11 && second >= 0x20 && second <= 0x2F) {
